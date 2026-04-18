@@ -1,32 +1,16 @@
+import AppKit
 import SwiftUI
 
 struct KeepCleanAmbientBackground: View {
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [KeepCleanPalette.cream, Color.white, KeepCleanPalette.mist],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(KeepCleanPalette.sky.opacity(0.16))
-                .frame(width: 320, height: 320)
-                .blur(radius: 32)
-                .offset(x: -220, y: -180)
-
-            Circle()
-                .fill(KeepCleanPalette.amber.opacity(0.16))
-                .frame(width: 260, height: 260)
-                .blur(radius: 30)
-                .offset(x: 260, y: -120)
-
-            Circle()
-                .fill(KeepCleanPalette.sky.opacity(0.10))
-                .frame(width: 360, height: 360)
-                .blur(radius: 40)
-                .offset(x: 180, y: 220)
-        }
+        LinearGradient(
+            colors: [
+                Color(nsColor: .windowBackgroundColor),
+                KeepCleanPalette.surface,
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
         .ignoresSafeArea()
     }
 }
@@ -36,42 +20,20 @@ struct KeepCleanPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             content
         }
-        .padding(22)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(panelFill)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.88))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.82), lineWidth: 1)
-                }
-                .overlay(alignment: .topLeading) {
-                    if let accent {
-                        Capsule(style: .continuous)
-                            .fill(accent.opacity(0.24))
-                            .frame(width: 92, height: 8)
-                            .padding(.top, 16)
-                            .padding(.leading, 18)
-                    }
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(KeepCleanPalette.border, lineWidth: 1)
                 }
         }
-        .shadow(color: KeepCleanPalette.ink.opacity(0.08), radius: 20, x: 0, y: 10)
-    }
-
-    private var panelFill: LinearGradient {
-        let accentColor = accent ?? KeepCleanPalette.skySoft
-        return LinearGradient(
-            colors: [
-                Color.white.opacity(0.96),
-                accentColor.opacity(0.12),
-                KeepCleanPalette.mist.opacity(0.78),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 }
 
@@ -80,31 +42,35 @@ struct KeepCleanSectionEyebrow: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: 12, weight: .bold, design: .rounded))
-            .tracking(1.2)
-            .foregroundStyle(KeepCleanPalette.ink.opacity(0.55))
+            .font(.system(size: 11, weight: .semibold))
+            .tracking(0.8)
+            .foregroundStyle(KeepCleanPalette.mutedInk)
     }
 }
 
 struct KeepCleanStatusPill: View {
     let text: String
-    var tint: Color = KeepCleanPalette.sky
+    var tint: Color = KeepCleanPalette.blue
 
     var body: some View {
         HStack(spacing: 8) {
             Circle()
                 .fill(tint)
-                .frame(width: 9, height: 9)
+                .frame(width: 8, height: 8)
 
             Text(text)
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: 13, weight: .medium))
         }
         .foregroundStyle(KeepCleanPalette.ink)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(
             Capsule(style: .continuous)
-                .fill(Color.white.opacity(0.72))
+                .fill(Color.white.opacity(0.92))
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(KeepCleanPalette.border, lineWidth: 1)
+                }
         )
     }
 }
@@ -114,27 +80,20 @@ struct KeepCleanActionButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 20, weight: .bold, design: .rounded))
+            .font(.system(size: 18, weight: .semibold))
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 94)
+            .frame(minHeight: 68)
+            .padding(.horizontal, 18)
             .background {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [tint, tint.opacity(0.86)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                    }
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(tint.opacity(configuration.isPressed ? 0.88 : 1))
             }
-            .shadow(color: tint.opacity(configuration.isPressed ? 0.18 : 0.28), radius: configuration.isPressed ? 10 : 22, x: 0, y: configuration.isPressed ? 6 : 14)
-            .scaleEffect(configuration.isPressed ? 0.99 : 1)
-            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+            }
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -143,27 +102,17 @@ struct KeepCleanTabChipStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .font(.system(size: 14, weight: .medium))
             .foregroundStyle(isSelected ? Color.white : KeepCleanPalette.ink)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
             .background {
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(
                         isSelected
-                            ? AnyShapeStyle(
-                                LinearGradient(
-                                    colors: [KeepCleanPalette.ink, KeepCleanPalette.sky],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            : AnyShapeStyle(Color.white.opacity(configuration.isPressed ? 0.85 : 0.64))
+                            ? KeepCleanPalette.blue.opacity(configuration.isPressed ? 0.86 : 1)
+                            : Color.clear
                     )
-            }
-            .overlay {
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.white.opacity(isSelected ? 0.18 : 0.82), lineWidth: 1)
             }
     }
 }

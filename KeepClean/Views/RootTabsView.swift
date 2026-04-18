@@ -7,28 +7,9 @@ struct RootTabsView: View {
         ZStack {
             KeepCleanAmbientBackground()
 
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 header
-
-                HStack(spacing: 10) {
-                    ForEach(AppTab.allCases) { tab in
-                        Button(tab.title) {
-                            model.selectedTab = tab
-                        }
-                        .buttonStyle(KeepCleanTabChipStyle(isSelected: model.selectedTab == tab))
-                        .accessibilityIdentifier("tab.\(tab.rawValue)")
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(0.46))
-                        .overlay {
-                            Capsule(style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.82), lineWidth: 1)
-                        }
-                )
+                tabBar
 
                 Group {
                     switch model.selectedTab {
@@ -42,74 +23,85 @@ struct RootTabsView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(24)
+            .padding(20)
         }
-        .frame(minWidth: 840, minHeight: 640)
+        .frame(minWidth: 780, minHeight: 580)
         .task {
             model.handleInitialAppearance()
         }
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 18) {
-            KeepCleanBrandMark(size: 62)
+        HStack(spacing: 14) {
+            KeepCleanBrandMark(size: 40)
 
-            VStack(alignment: .leading, spacing: 6) {
-                KeepCleanSectionEyebrow(text: "Offline Mac utility")
+            VStack(alignment: .leading, spacing: 2) {
                 Text("KeepClean")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(KeepCleanPalette.ink)
                 Text(currentSubtitle)
-                    .font(.headline)
-                    .foregroundStyle(KeepCleanPalette.ink.opacity(0.72))
+                    .font(.subheadline)
+                    .foregroundStyle(KeepCleanPalette.mutedInk)
             }
 
             Spacer()
 
             KeepCleanStatusPill(text: currentPillText, tint: currentPillTint)
         }
-        .padding(24)
+        .padding(.horizontal, 4)
+    }
+
+    private var tabBar: some View {
+        HStack(spacing: 6) {
+            ForEach(AppTab.allCases) { tab in
+                Button(tab.title) {
+                    model.selectedTab = tab
+                }
+                .buttonStyle(KeepCleanTabChipStyle(isSelected: model.selectedTab == tab))
+                .accessibilityIdentifier("tab.\(tab.rawValue)")
+            }
+        }
+        .padding(6)
         .background(
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .fill(Color.white.opacity(0.52))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.82))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 32, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.82), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(KeepCleanPalette.border, lineWidth: 1)
                 }
         )
-        .shadow(color: KeepCleanPalette.ink.opacity(0.08), radius: 20, x: 0, y: 10)
     }
 
     private var currentSubtitle: String {
         switch model.selectedTab {
         case .clean:
-            "Safer cleaning controls for your built-in keyboard and trackpad."
+            "Built-in keyboard and trackpad cleaning."
         case .settings:
-            "Dial in timing and launch behavior before you start cleaning."
+            "Timing and launch preferences."
         case .about:
-            "A tiny practice project with a little more shine."
+            "Project details and links."
         }
     }
 
     private var currentPillText: String {
         switch model.selectedTab {
         case .clean:
-            model.activeSession == nil ? "Ready to clean" : "Cleaning active"
+            model.activeSession == nil ? "Ready" : "Active"
         case .settings:
-            "Safety defaults"
+            "Preferences"
         case .about:
-            "Made locally"
+            "Local app"
         }
     }
 
     private var currentPillTint: Color {
         switch model.selectedTab {
         case .clean:
-            model.activeSession == nil ? KeepCleanPalette.success : KeepCleanPalette.warning
+            model.activeSession == nil ? KeepCleanPalette.success : KeepCleanPalette.orange
         case .settings:
-            KeepCleanPalette.sky
+            KeepCleanPalette.blue
         case .about:
-            KeepCleanPalette.amber
+            KeepCleanPalette.mutedInk
         }
     }
 }
