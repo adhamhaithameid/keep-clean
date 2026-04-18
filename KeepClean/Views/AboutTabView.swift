@@ -6,129 +6,83 @@ struct AboutTabView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                heroPanel
+            VStack(alignment: .leading, spacing: 14) {
+                infoPanel
                 linksPanel
-                footerPanel
+                creditsPanel
             }
         }
     }
 
-    private var heroPanel: some View {
-        KeepCleanPanel(accent: KeepCleanPalette.amber) {
-            HStack(alignment: .center, spacing: 18) {
-                KeepCleanBrandMark(size: 82)
+    private var infoPanel: some View {
+        KeepCleanPanel {
+            HStack(alignment: .center, spacing: 16) {
+                KeepCleanBrandMark(size: 52)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    KeepCleanSectionEyebrow(text: "About KeepClean")
-                    Text("A tiny macOS utility with a cleaner personality.")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                VStack(alignment: .leading, spacing: 4) {
+                    KeepCleanSectionEyebrow(text: "About")
+                    Text("KeepClean")
+                        .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(KeepCleanPalette.ink)
-                    Text("Simple on purpose, local by default, and built as a practice project in Swift.")
-                        .font(.headline)
-                        .foregroundStyle(KeepCleanPalette.ink.opacity(0.70))
+                    Text("A small offline Mac utility for cleaning the built-in keyboard and trackpad.")
+                        .font(.body)
+                        .foregroundStyle(KeepCleanPalette.mutedInk)
                 }
-
-                Spacer()
             }
         }
     }
 
     private var linksPanel: some View {
-        KeepCleanPanel(accent: KeepCleanPalette.sky) {
+        KeepCleanPanel {
             KeepCleanSectionEyebrow(text: "Links")
 
             HStack(alignment: .top, spacing: 18) {
                 Button {
                     model.open(.profile)
                 } label: {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 10) {
                         ProfileAvatarView()
                         Text("Adham Haitham Eid")
                             .font(.headline)
                             .foregroundStyle(KeepCleanPalette.ink)
-                        Text("Tap the profile image to open the GitHub profile.")
+                        Text("Open GitHub profile")
                             .font(.subheadline)
-                            .foregroundStyle(KeepCleanPalette.ink.opacity(0.68))
+                            .foregroundStyle(KeepCleanPalette.mutedInk)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("about.profile")
 
-                VStack(spacing: 12) {
-                    Button {
+                Spacer(minLength: 0)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Button("Donate") {
                         model.open(.donation)
-                    } label: {
-                        actionTile(
-                            title: "Donate",
-                            subtitle: "Support the project with a coffee.",
-                            tint: KeepCleanPalette.warning
-                        )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderedProminent)
+                    .tint(KeepCleanPalette.orange)
                     .accessibilityIdentifier("about.donate")
 
-                    Button {
+                    Button("GitHub Repo") {
                         model.open(.repository)
-                    } label: {
-                        actionTile(
-                            title: "GitHub Repo",
-                            subtitle: "Open the public source repository.",
-                            tint: KeepCleanPalette.sky
-                        )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bordered)
                     .accessibilityIdentifier("about.repo")
                 }
-                .frame(maxWidth: .infinity, alignment: .top)
             }
         }
     }
 
-    private var footerPanel: some View {
+    private var creditsPanel: some View {
         KeepCleanPanel {
             KeepCleanSectionEyebrow(text: "Credits")
             Text("Made with love, coffee, VS Code, and Figma.")
-                .font(.title3.weight(.bold))
+                .font(.headline)
                 .foregroundStyle(KeepCleanPalette.ink)
             Text("Built for practicing Swift as a junior software engineer.")
-                .font(.headline)
-                .foregroundStyle(KeepCleanPalette.ink.opacity(0.72))
+                .font(.subheadline)
+                .foregroundStyle(KeepCleanPalette.mutedInk)
         }
-    }
-
-    private func actionTile(title: String, subtitle: String, tint: Color) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            Circle()
-                .fill(tint.opacity(0.16))
-                .frame(width: 42, height: 42)
-                .overlay {
-                    Image(systemName: "arrow.up.right")
-                        .foregroundStyle(tint)
-                }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(KeepCleanPalette.ink)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(KeepCleanPalette.ink.opacity(0.68))
-            }
-
-            Spacer()
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.68))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.88), lineWidth: 1)
-                }
-        )
     }
 }
 
@@ -142,16 +96,15 @@ private struct ProfileAvatarView: View {
                     .scaledToFill()
             } else {
                 Circle()
-                    .fill(KeepCleanPalette.sky.opacity(0.15))
+                    .fill(KeepCleanPalette.blueSoft)
                     .overlay {
                         Text("AE")
                             .font(.title.bold())
                     }
             }
         }
-        .frame(width: 122, height: 122)
+        .frame(width: 96, height: 96)
         .clipShape(Circle())
-        .overlay(Circle().stroke(Color.white.opacity(0.90), lineWidth: 4))
-        .shadow(color: KeepCleanPalette.ink.opacity(0.12), radius: 18, x: 0, y: 10)
+        .overlay(Circle().stroke(Color.white, lineWidth: 3))
     }
 }
