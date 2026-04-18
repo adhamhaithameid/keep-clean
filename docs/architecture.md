@@ -1,42 +1,38 @@
-# KeepClean Architecture
+# How KeepClean Works
 
-## Overview
+KeepClean uses Apple frameworks and a very small app structure so it can stay lightweight and predictable.
 
-KeepClean is split into three parts:
+## What the App Does
 
-1. The macOS app UI, built with SwiftUI.
-2. The built-in input controller, which uses CoreHID to detect and seize the built-in keyboard and trackpad.
-3. The timed helper executable, which owns strict full-clean sessions so the timeout can complete independently of the main app window.
+- The main window gives you two cleaning actions, one settings page, and one about page.
+- The built-in keyboard action is controlled directly by the app.
+- The built-in keyboard + trackpad action is controlled by a tiny helper process with a deadline, so the timed clean can finish even if the main window closes.
 
-## Main App
+## Why There Is a Helper
 
-- `KeepCleanApp.swift`
-  - Creates the main window.
-  - Wires the app delegate termination callback.
-- `AppViewModel.swift`
-  - Coordinates UI state, auto-start countdowns, manual keyboard sessions, and timed helper launches.
-- `RootTabsView.swift`
-  - Switches between the `Clean`, `Settings`, and `About` tabs.
+The strict timed clean needs to recover automatically. If the main app owned that lock and crashed or closed at the wrong moment, the behavior would be harder to trust. The helper exists to keep that timed path isolated and simpler.
 
-## Input Control
+## Why the App Stays Small
 
-- `LiveBuiltInInputController.swift`
-  - Uses `HIDDeviceManager` to watch for built-in keyboard and trackpad devices.
-  - Maps CoreHID devices into `HIDDeviceSnapshot`.
-  - Seizes devices on demand and returns an `InputLockLease`.
-- `InputLockLease`
-  - Keeps device clients alive while a lock is active.
-  - Releasing the lease drops those references so the system can recover the devices.
+- It only supports the built-in keyboard and built-in trackpad.
+- It does not scan for or manage external keyboards or mice.
+- It does not bundle networking features, auto-update frameworks, analytics SDKs, or account systems.
+- It uses native Swift and SwiftUI instead of a heavier cross-platform stack.
 
-## Timed Helper
+## What Release Checks Verify
 
-- `KeepCleanHelper/main.swift`
-  - Accepts a base64-encoded JSON request.
-  - Seizes the built-in keyboard and trackpad.
-  - Sleeps until the requested deadline and then exits, allowing the devices to be released.
+Before packaging installable builds, the release checks verify:
 
-## Testing Strategy
+- logic checks for the core models
+- unit tests for settings, lock state, helper launch requests, helper launching, and app state transitions
+- a launch smoke test
+- app bundle contents
+- code signing verification
+- bundle size budget
+- memory budget after launch
 
-- Unit tests cover settings, request encoding, device matching, and lock state transitions.
-- UI tests run with a mock input controller so they never disable real hardware input.
-- Manual testing covers the live built-in input behavior on real hardware.
+If you are building from source, run:
+
+```bash
+./script/run_release_checks.sh
+```

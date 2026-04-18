@@ -1,18 +1,31 @@
-# Permissions and macOS Prompts
+# Permissions
 
-KeepClean uses CoreHID to communicate with the built-in keyboard and trackpad. macOS may require explicit user approval before allowing access to HID devices such as keyboards.
+KeepClean talks to the built-in keyboard and trackpad through Apple HID APIs. macOS may ask for permission the first time you run a real cleaning action.
 
-## Expected Behavior
+## What to Expect
 
-- On the first real device interaction, macOS may show an approval prompt.
-- If access is denied, KeepClean surfaces a plain-language error and leaves the Mac usable.
-- UI tests use a mock controller and do not request HID access.
+- The app can open and display its interface without special permission.
+- A permission prompt may appear only when you trigger a real clean.
+- If access is denied, KeepClean shows an error and leaves your Mac usable.
 
-## If the App Can’t Lock Input
+## Best First Test
 
-1. Launch KeepClean directly.
-2. Try the keyboard-only action.
-3. If macOS prompts for approval, allow it.
-4. Retry the action.
+Use `Disable Keyboard` first.
 
-If the system still refuses access, relaunch the app and check the status text in the `Clean` tab.
+That mode keeps the trackpad active, which makes it the safest way to confirm the permission flow on your Mac.
+
+## If You Do Not See a Prompt
+
+1. Quit KeepClean.
+2. Open it again.
+3. Try `Disable Keyboard`.
+4. Watch for a system prompt or a message in the app.
+
+## If You Previously Denied Access
+
+1. Open KeepClean.
+2. Use the `Open Privacy & Security` button in `Settings`, or use the same button shown in the error panel after a failed clean.
+3. Review the relevant privacy or security prompt area macOS shows for HID access on your system version.
+4. Re-open KeepClean and try again.
+
+If the app still says access was denied, check [Troubleshooting](/Users/adhamhaithameid/Desktop/code/keep-clean/docs/troubleshooting.md).
