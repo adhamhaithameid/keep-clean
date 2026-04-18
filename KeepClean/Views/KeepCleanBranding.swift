@@ -2,15 +2,17 @@ import AppKit
 import SwiftUI
 
 enum KeepCleanPalette {
-    static let ink = Color(red: 0.16, green: 0.18, blue: 0.22)
-    static let mutedInk = Color(red: 0.40, green: 0.43, blue: 0.49)
-    static let blue = Color(red: 0.18, green: 0.46, blue: 0.92)
-    static let blueSoft = Color(red: 0.88, green: 0.93, blue: 1.00)
-    static let orange = Color(red: 0.95, green: 0.52, blue: 0.19)
-    static let success = Color(red: 0.21, green: 0.60, blue: 0.45)
-    static let surface = Color(red: 0.96, green: 0.97, blue: 0.98)
-    static let surfaceWarm = Color(red: 0.98, green: 0.98, blue: 0.99)
-    static let border = Color.black.opacity(0.08)
+    static let ink = Color.primary
+    static let mutedInk = Color.secondary
+    static let blue = Color.accentColor
+    static let blueSoft = Color.accentColor.opacity(0.12)
+    static let orange = Color(red: 0.92, green: 0.47, blue: 0.16)
+    static let success = Color(red: 0.17, green: 0.60, blue: 0.38)
+    static let surface = Color(nsColor: .controlBackgroundColor)
+    static let surfaceWarm = Color(nsColor: .controlBackgroundColor)
+    static let border = Color(nsColor: .separatorColor).opacity(0.65)
+    static let windowBackground = Color(nsColor: .windowBackgroundColor)
+    static let subtleFill = Color(nsColor: .textBackgroundColor)
 }
 
 struct KeepCleanBrandMark: View {
