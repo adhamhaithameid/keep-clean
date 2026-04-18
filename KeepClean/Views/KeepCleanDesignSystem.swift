@@ -43,10 +43,10 @@ struct KeepCleanPanel<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(panelFill)
                 .overlay {
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.70), lineWidth: 1)
+                        .strokeBorder(Color.white.opacity(0.82), lineWidth: 1)
                 }
                 .overlay(alignment: .topLeading) {
                     if let accent {
@@ -59,6 +59,19 @@ struct KeepCleanPanel<Content: View>: View {
                 }
         }
         .shadow(color: KeepCleanPalette.ink.opacity(0.08), radius: 20, x: 0, y: 10)
+    }
+
+    private var panelFill: LinearGradient {
+        let accentColor = accent ?? KeepCleanPalette.skySoft
+        return LinearGradient(
+            colors: [
+                Color.white.opacity(0.96),
+                accentColor.opacity(0.12),
+                KeepCleanPalette.mist.opacity(0.78),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }
 
