@@ -3,6 +3,8 @@
 .derived-data
 .swift-build
 .logic-checks
+.brand-build
+.generated-brand-assets
 dist
 xcuserdata/
 DerivedData/
