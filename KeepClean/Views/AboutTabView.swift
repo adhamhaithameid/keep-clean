@@ -66,7 +66,8 @@ struct AboutTabView: View {
                     Button("GitHub Repo") {
                         model.open(.repository)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
+                    .tint(KeepCleanPalette.blue)
                     .accessibilityIdentifier("about.repo")
                 }
             }
