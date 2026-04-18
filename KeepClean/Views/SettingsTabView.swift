@@ -5,7 +5,7 @@ struct SettingsTabView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 14) {
                 headerPanel
                 durationPanel
                 autoStartPanel
@@ -15,87 +15,86 @@ struct SettingsTabView: View {
     }
 
     private var headerPanel: some View {
-        KeepCleanPanel(accent: KeepCleanPalette.sky) {
-            KeepCleanSectionEyebrow(text: "Preferences")
-            Text("Tune the cleaning experience before you need it.")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+        KeepCleanPanel {
+            KeepCleanSectionEyebrow(text: "Settings")
+            Text("Preferences")
+                .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(KeepCleanPalette.ink)
-
-            Text("These settings stay local to your Mac and keep the recovery rules easy to understand.")
-                .font(.headline)
-                .foregroundStyle(KeepCleanPalette.ink.opacity(0.70))
+            Text("These settings stay on this Mac and only affect the built-in cleaning flows.")
+                .font(.body)
+                .foregroundStyle(KeepCleanPalette.mutedInk)
         }
     }
 
     private var durationPanel: some View {
-        KeepCleanPanel(accent: KeepCleanPalette.amber) {
-            KeepCleanSectionEyebrow(text: "Timed full clean")
-            Text("Keyboard + Trackpad Duration")
-                .font(.title3.weight(.bold))
-                .foregroundStyle(KeepCleanPalette.ink)
+        KeepCleanPanel {
+            KeepCleanSectionEyebrow(text: "Timed clean")
 
-            HStack(alignment: .center, spacing: 16) {
-                Text("\(settings.fullCleanDurationSeconds)s")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .foregroundStyle(KeepCleanPalette.warning)
-                    .frame(minWidth: 104, alignment: .leading)
-
-                Stepper(value: $settings.fullCleanDurationSeconds, in: AppSettings.minimumDurationSeconds...AppSettings.maximumDurationSeconds) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Adjust the strict auto-release timer.")
-                            .font(.headline)
-                            .foregroundStyle(KeepCleanPalette.ink)
-                        Text("Allowed range: \(AppSettings.minimumDurationSeconds)-\(AppSettings.maximumDurationSeconds) seconds.")
-                            .font(.subheadline)
-                            .foregroundStyle(KeepCleanPalette.ink.opacity(0.65))
-                    }
+            HStack(alignment: .center, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Keyboard + Trackpad Duration")
+                        .font(.headline)
+                        .foregroundStyle(KeepCleanPalette.ink)
+                    Text("Choose how long the full clean mode should stay active.")
+                        .font(.subheadline)
+                        .foregroundStyle(KeepCleanPalette.mutedInk)
                 }
+
+                Spacer()
+
+                Text("\(settings.fullCleanDurationSeconds)s")
+                    .font(.system(size: 32, weight: .semibold, design: .rounded))
+                    .foregroundStyle(KeepCleanPalette.orange)
             }
+
+            Stepper("Allowed range: \(AppSettings.minimumDurationSeconds)-\(AppSettings.maximumDurationSeconds) seconds.", value: $settings.fullCleanDurationSeconds, in: AppSettings.minimumDurationSeconds...AppSettings.maximumDurationSeconds)
+                .foregroundStyle(KeepCleanPalette.mutedInk)
         }
     }
 
     private var autoStartPanel: some View {
-        KeepCleanPanel(accent: KeepCleanPalette.sky) {
-            KeepCleanSectionEyebrow(text: "Launch behavior")
+        KeepCleanPanel {
+            KeepCleanSectionEyebrow(text: "Launch")
+
             Toggle(isOn: $settings.autoStartKeyboardDisableOnLaunch) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Start keyboard disable after opening the app")
                         .font(.headline)
                         .foregroundStyle(KeepCleanPalette.ink)
                     Text("KeepClean shows a 3-second countdown first so you can cancel it with the trackpad.")
                         .font(.subheadline)
-                        .foregroundStyle(KeepCleanPalette.ink.opacity(0.68))
+                        .foregroundStyle(KeepCleanPalette.mutedInk)
                 }
             }
-            .toggleStyle(.switch)
 
-            Text("Auto-start applies only to the keyboard-only mode. The timed full-clean mode is always manual on purpose.")
+            Text("Auto-start applies only to keyboard-only mode. Full clean always stays manual.")
                 .font(.subheadline)
-                .foregroundStyle(KeepCleanPalette.ink.opacity(0.68))
+                .foregroundStyle(KeepCleanPalette.mutedInk)
         }
     }
 
     private var safetyPanel: some View {
         KeepCleanPanel {
-            KeepCleanSectionEyebrow(text: "Safety defaults")
+            KeepCleanSectionEyebrow(text: "Notes")
 
-            VStack(alignment: .leading, spacing: 10) {
-                settingsRow(symbol: "keyboard.fill", text: "Keyboard-only mode never disables the built-in trackpad.")
-                settingsRow(symbol: "clock.badge.checkmark", text: "Full clean mode always auto-recovers after the selected duration.")
-                settingsRow(symbol: "lock.shield.fill", text: "KeepClean stays offline. The only links it opens are the About tab buttons in your default browser.")
+            VStack(alignment: .leading, spacing: 8) {
+                settingsRow("Keyboard-only mode never disables the built-in trackpad.")
+                settingsRow("Full clean mode always auto-recovers after the selected duration.")
+                settingsRow("KeepClean stays offline. The About tab links open in your default browser.")
             }
         }
     }
 
-    private func settingsRow(symbol: String, text: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: symbol)
-                .foregroundStyle(KeepCleanPalette.sky)
-                .frame(width: 18)
+    private func settingsRow(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "circle.fill")
+                .font(.system(size: 7))
+                .foregroundStyle(KeepCleanPalette.blue)
+                .padding(.top, 6)
 
             Text(text)
                 .font(.subheadline)
-                .foregroundStyle(KeepCleanPalette.ink.opacity(0.72))
+                .foregroundStyle(KeepCleanPalette.mutedInk)
         }
     }
 }
