@@ -4,11 +4,10 @@ struct RootTabsView: View {
     @Bindable var model: AppViewModel
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             KeepCleanAmbientBackground()
 
-            VStack(spacing: 16) {
-                header
+            VStack(spacing: 18) {
                 tabBar
 
                 Group {
@@ -16,81 +15,49 @@ struct RootTabsView: View {
                     case .clean:
                         CleanTabView(model: model)
                     case .settings:
-                        SettingsTabView(settings: model.settings)
+                        SettingsTabView(
+                            settings: model.settings,
+                            openPrivacyAndSecurity: model.openPrivacyAndSecurity
+                        )
                     case .about:
                         AboutTabView(model: model)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(20)
+            .padding(24)
         }
-        .frame(minWidth: 780, minHeight: 580)
+        .frame(minWidth: 540, minHeight: 440)
         .task {
             model.handleInitialAppearance()
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 14) {
-            KeepCleanBrandMark(size: 34)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("KeepClean")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(KeepCleanPalette.ink)
-                Text("Built-in keyboard and trackpad cleaning.")
-                    .font(.subheadline)
-                    .foregroundStyle(KeepCleanPalette.mutedInk)
-            }
-
-            Spacer()
-
-            KeepCleanStatusPill(text: currentPillText, tint: currentPillTint)
-        }
-        .padding(.horizontal, 4)
-    }
-
     private var tabBar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 10) {
             ForEach(AppTab.allCases) { tab in
-                Button(tab.title) {
-                    model.selectedTab = tab
-                }
-                .buttonStyle(KeepCleanTabChipStyle(isSelected: model.selectedTab == tab))
-                .accessibilityIdentifier("tab.\(tab.rawValue)")
+                tabButton(for: tab)
             }
         }
-        .padding(6)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.82))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(KeepCleanPalette.border, lineWidth: 1)
-                }
-        )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var currentPillText: String {
-        switch model.selectedTab {
-        case .clean:
-            model.activeSession == nil ? "Ready" : "Active"
-        case .settings:
-            "Preferences"
-        case .about:
-            "Local app"
-        }
-    }
-
-    private var currentPillTint: Color {
-        switch model.selectedTab {
-        case .clean:
-            model.activeSession == nil ? KeepCleanPalette.success : KeepCleanPalette.orange
-        case .settings:
-            KeepCleanPalette.blue
-        case .about:
-            KeepCleanPalette.mutedInk
+    @ViewBuilder
+    private func tabButton(for tab: AppTab) -> some View {
+        if model.selectedTab == tab {
+            Button(tab.title) {
+                model.selectedTab = tab
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .accessibilityIdentifier("tab.\(tab.rawValue)")
+        } else {
+            Button(tab.title) {
+                model.selectedTab = tab
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .accessibilityIdentifier("tab.\(tab.rawValue)")
         }
     }
 }
