@@ -1,18 +1,29 @@
+@preconcurrency import ApplicationServices
 import Foundation
-import Observation
+import Combine
+import os.log
+
+private let logger = Logger(subsystem: "com.adhamhaithameid.keepclean", category: "AppViewModel")
 
 @MainActor
-@Observable
-final class AppViewModel {
+final class AppViewModel: ObservableObject {
     let settings: AppSettings
 
-    var selectedTab: AppTab = .clean
-    var activeSession: LockSession?
-    var errorMessage: String?
-    var shouldOfferPrivacyAndSecurityHelp = false
-    var statusMessage = "Preparing built-in input detection…"
-    var remainingTimedLockSeconds: Int?
-    var autoStartCountdownSecondsRemaining: Int?
+    @Published var selectedTab: AppTab = .clean
+    @Published var activeSession: LockSession?
+    @Published var statusMessage = "Ready"
+    @Published var remainingTimedLockSeconds: Int?
+    @Published var autoStartCountdownSecondsRemaining: Int?
+
+    // Permission tracking
+    @Published var hasAccessibility = false
+    @Published var hasInputMonitoring = false
+
+    // Toast notification system
+    @Published var toastMessage: String?
+    @Published var toastIsError: Bool = false
+    private var toastDismissTask: Task<Void, Never>?
+    private var permissionPollTask: Task<Void, Never>?
 
     private let inputController: any BuiltInInputControlling
     private let helperLauncher: HelperProcessLauncher
@@ -21,7 +32,7 @@ final class AppViewModel {
 
     private var lockCoordinator = LockStateCoordinator()
     private var manualKeyboardLease: InputLockLease?
-    private var mockTimedLease: InputLockLease?
+    private var timedLease: InputLockLease?
     private var helperProcess: Process?
     private var timedCountdownTask: Task<Void, Never>?
     private var autoStartTask: Task<Void, Never>?
@@ -39,27 +50,104 @@ final class AppViewModel {
         self.helperLauncher = helperLauncher
         self.linkOpener = linkOpener
         self.launchOverrides = launchOverrides
+
+        // Initial permission check
+        refreshPermissions()
     }
 
-    var keyboardButtonTitle: String {
-        manualKeyboardLease == nil ? "Disable Keyboard" : "Re-enable Keyboard"
+    // MARK: - Permission State
+
+    /// True when both permissions are granted.
+    var allPermissionsGranted: Bool {
+        hasAccessibility && hasInputMonitoring
     }
 
-    var fullCleanButtonTitle: String {
-        "Disable Keyboard + Trackpad for \(settings.fullCleanDurationSeconds) Seconds"
+    /// Refresh permission state (called by polling and manually).
+    func refreshPermissions() {
+        hasAccessibility = AXIsProcessTrusted()
+        // Input Monitoring: try multiple detection methods.
+        // 1. Test event tap creation (most reliable runtime check)
+        // 2. CGPreflightListenEventAccess() as fallback
+        hasInputMonitoring = checkInputMonitoringAvailable()
+        logger.debug("Permissions refreshed: accessibility=\(self.hasAccessibility), inputMonitoring=\(self.hasInputMonitoring)")
     }
 
-    var hasActiveTimedSession: Bool {
+    /// Check if Input Monitoring is available using multiple methods.
+    private func checkInputMonitoringAvailable() -> Bool {
+        // Method 1: Try creating a test listenOnly event tap.
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let callback = inputMonitoringTestCallback as CGEventTapCallBack
+        if let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: mask,
+            callback: callback,
+            userInfo: nil
+        ) {
+            CFMachPortInvalidate(tap)
+            return true
+        }
+
+        // Method 2: Official API (may not update in real-time).
+        return CGPreflightListenEventAccess()
+    }
+
+    /// Prompt for Accessibility and open the settings pane.
+    func promptAccessibility() {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+        SystemSettingsLink.accessibility.open()
+        startPermissionPolling()
+    }
+
+    /// Open Input Monitoring settings pane and request permission.
+    func promptInputMonitoring() {
+        // Trigger the system consent dialog for Input Monitoring.
+        CGRequestListenEventAccess()
+        SystemSettingsLink.inputMonitoring.open()
+        startPermissionPolling()
+    }
+
+    /// Start polling permissions after the user is sent to System Settings.
+    func startPermissionPolling() {
+        permissionPollTask?.cancel()
+        permissionPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(800))
+                self?.refreshPermissions()
+            }
+        }
+    }
+
+    func stopPermissionPolling() {
+        permissionPollTask?.cancel()
+        permissionPollTask = nil
+    }
+
+    // MARK: - Computed State
+
+    /// Whether the keyboard-only lock is currently active.
+    var isKeyboardLocked: Bool {
+        manualKeyboardLease != nil
+    }
+
+    /// Whether the timed full clean (keyboard + trackpad) is active.
+    var isTimedSessionActive: Bool {
         activeSession?.target == .keyboardAndTrackpad
     }
 
-    var canTriggerKeyboardAction: Bool {
-        activeSession == nil || activeSession?.target == .keyboard
+    /// Whether the keyboard-only button can be used.
+    var canToggleKeyboard: Bool {
+        !isTimedSessionActive
     }
 
-    var canTriggerTimedAction: Bool {
+    /// Whether the timed full clean button can be used.
+    var canStartTimedClean: Bool {
         activeSession == nil
     }
+
+    // MARK: - Lifecycle
 
     func handleInitialAppearance() {
         guard !didHandleInitialLaunch else {
@@ -85,29 +173,40 @@ final class AppViewModel {
     func handleAppTermination() {
         timedCountdownTask?.cancel()
         autoStartTask?.cancel()
+        permissionPollTask?.cancel()
 
         Task {
             await manualKeyboardLease?.release()
-            await mockTimedLease?.release()
+            await timedLease?.release()
         }
 
         lockCoordinator.clear()
         helperProcess = nil
         manualKeyboardLease = nil
-        mockTimedLease = nil
+        timedLease = nil
         activeSession = nil
         remainingTimedLockSeconds = nil
         autoStartCountdownSecondsRemaining = nil
-        errorMessage = nil
-        shouldOfferPrivacyAndSecurityHelp = false
-        statusMessage = "KeepClean closed. Built-in input remains available."
+        toastMessage = nil
+        statusMessage = "KeepClean closed."
     }
 
+    // MARK: - Keyboard Toggle
+
     func toggleKeyboardLock() async {
-        errorMessage = nil
-        shouldOfferPrivacyAndSecurityHelp = false
+        toastMessage = nil
         autoStartTask?.cancel()
         autoStartCountdownSecondsRemaining = nil
+
+        // Check current permission state
+        guard hasAccessibility else {
+            showToast("Accessibility permission required. Click \"Grant\" above.", isError: true)
+            return
+        }
+        guard hasInputMonitoring else {
+            showToast("Input Monitoring permission required. Click \"Grant\" above.", isError: true)
+            return
+        }
 
         if let manualKeyboardLease {
             await manualKeyboardLease.release()
@@ -115,6 +214,7 @@ final class AppViewModel {
             lockCoordinator.clear()
             activeSession = nil
             statusMessage = await inputController.availabilitySummary()
+            showToast("Keyboard re-enabled.", isError: false)
             return
         }
 
@@ -122,91 +222,132 @@ final class AppViewModel {
             let lease = try await inputController.lock(target: .keyboard)
             manualKeyboardLease = lease
             activeSession = lockCoordinator.beginManual(target: .keyboard, owner: .app)
-            statusMessage = "Keyboard disabled. The built-in trackpad stays active so you can re-enable it."
+            statusMessage = "Keyboard disabled."
         } catch {
-            present(error: error, availability: await inputController.availabilitySummary())
+            showErrorToast(error)
         }
     }
+
+    // MARK: - Timed Full Clean
 
     func startTimedFullClean() async {
         guard activeSession == nil else {
             return
         }
 
-        errorMessage = nil
-        shouldOfferPrivacyAndSecurityHelp = false
+        toastMessage = nil
         autoStartTask?.cancel()
         autoStartCountdownSecondsRemaining = nil
 
-        if launchOverrides.useMockInputController {
-            do {
-                let lease = try await inputController.lock(target: .keyboardAndTrackpad)
-                mockTimedLease = lease
-                let session = lockCoordinator.beginTimed(
-                    target: .keyboardAndTrackpad,
-                    durationSeconds: settings.fullCleanDurationSeconds,
-                    owner: .helper
-                )
-                activeSession = session
-                startTimedCountdown(until: session.endsAt, releaseMockLeaseOnCompletion: true)
-                statusMessage = "Keyboard and trackpad disabled for cleaning."
-            } catch {
-                present(error: error, availability: await inputController.availabilitySummary())
-            }
+        // Check current permission state
+        guard hasAccessibility else {
+            showToast("Accessibility permission required. Click \"Grant\" above.", isError: true)
+            return
+        }
+        guard hasInputMonitoring else {
+            showToast("Input Monitoring permission required. Click \"Grant\" above.", isError: true)
             return
         }
 
         do {
-            let request = HelperLaunchRequest(
-                target: .keyboardAndTrackpad,
-                durationSeconds: settings.fullCleanDurationSeconds,
-                startedAt: Date()
-            )
-            let process = try helperLauncher.launch(request: request)
-            helperProcess = process
+            let lease = try await inputController.lock(target: .keyboardAndTrackpad)
+            timedLease = lease
             let session = lockCoordinator.beginTimed(
                 target: .keyboardAndTrackpad,
                 durationSeconds: settings.fullCleanDurationSeconds,
-                owner: .helper
+                owner: .app
             )
             activeSession = session
-            statusMessage = "Keyboard and trackpad disabled for cleaning."
-            startTimedCountdown(until: session.endsAt, releaseMockLeaseOnCompletion: false)
-
-            process.terminationHandler = { [weak self] process in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.helperProcess = nil
-                    if process.terminationStatus != 0, self.remainingTimedLockSeconds != nil {
-                        self.errorMessage = "The cleaning helper exited early."
-                        self.shouldOfferPrivacyAndSecurityHelp = false
-                        self.finishTimedSession()
-                    }
-                }
-            }
+            startTimedCountdown(until: session.endsAt)
+            statusMessage = "Keyboard and trackpad disabled."
         } catch {
-            present(error: error, availability: await inputController.availabilitySummary())
+            showErrorToast(error)
         }
     }
+
+    /// Cancel a running timed session early.
+    func cancelTimedSession() async {
+        timedCountdownTask?.cancel()
+        if let timedLease {
+            await timedLease.release()
+            self.timedLease = nil
+        }
+        helperProcess?.terminate()
+        helperProcess = nil
+        lockCoordinator.clear()
+        activeSession = nil
+        remainingTimedLockSeconds = nil
+        statusMessage = await inputController.availabilitySummary()
+        showToast("Input re-enabled.", isError: false)
+    }
+
+    // MARK: - Auto-Start
 
     func cancelAutoStart() {
         autoStartTask?.cancel()
         autoStartCountdownSecondsRemaining = nil
-        statusMessage = "Auto-start canceled. You can trigger keyboard cleaning manually."
+        statusMessage = "Auto-start canceled."
     }
+
+    // MARK: - Links & Settings
 
     func open(_ link: ExternalLink) {
         linkOpener.open(link.url)
     }
 
     func openPrivacyAndSecurity() {
-        linkOpener.open(SystemSettingsLink.privacyAndSecurity.url)
+        SystemSettingsLink.privacyAndSecurity.open()
+    }
+
+    // MARK: - Toast Notifications
+
+    func showToast(_ message: String, isError: Bool) {
+        toastDismissTask?.cancel()
+        toastMessage = message
+        toastIsError = isError
+        toastDismissTask = Task {
+            try? await Task.sleep(for: .seconds(isError ? 8 : 3))
+            guard !Task.isCancelled else { return }
+            self.toastMessage = nil
+        }
+    }
+
+    func dismissToast() {
+        toastDismissTask?.cancel()
+        toastMessage = nil
+    }
+
+    // MARK: - Private
+
+    private func showErrorToast(_ error: Error) {
+        let message: String
+        if let keepCleanError = error as? KeepCleanError {
+            switch keepCleanError {
+            case .permissionDenied(let details):
+                message = details
+            case .keyboardUnavailable:
+                message = "Built-in keyboard not found."
+            case .trackpadUnavailable:
+                message = "Built-in trackpad not found. The keyboard was still disabled."
+            case .seizeFailed(let details):
+                message = details
+            case .devicesUnavailable:
+                message = "No built-in input devices found."
+            case .helperMissing:
+                message = "Helper tool is missing from the app bundle."
+            case .invalidHelperArguments:
+                message = "Internal error in helper communication."
+            }
+        } else {
+            message = error.localizedDescription
+        }
+        showToast(message, isError: true)
     }
 
     private func beginAutoStartCountdown() {
         autoStartTask?.cancel()
         autoStartCountdownSecondsRemaining = 3
-        statusMessage = "Auto-start will disable the keyboard in a moment."
+        statusMessage = "Auto-start in 3s..."
 
         autoStartTask = Task { [weak self] in
             guard let self else { return }
@@ -227,7 +368,7 @@ final class AppViewModel {
         }
     }
 
-    private func startTimedCountdown(until endDate: Date?, releaseMockLeaseOnCompletion: Bool) {
+    private func startTimedCountdown(until endDate: Date?) {
         timedCountdownTask?.cancel()
 
         guard let endDate else {
@@ -246,14 +387,9 @@ final class AppViewModel {
                 }
 
                 if remaining <= 0 {
-                    if releaseMockLeaseOnCompletion {
-                        await self.mockTimedLease?.release()
-                        await MainActor.run {
-                            self.mockTimedLease = nil
-                        }
-                    }
-
+                    await self.timedLease?.release()
                     await MainActor.run {
+                        self.timedLease = nil
                         self.finishTimedSession()
                     }
                     return
@@ -270,30 +406,25 @@ final class AppViewModel {
         helperProcess = nil
         lockCoordinator.clear()
         activeSession = nil
-        shouldOfferPrivacyAndSecurityHelp = false
-        statusMessage = "Built-in input is available again."
+        statusMessage = "Done! Input re-enabled."
+        showToast("Cleaning session completed.", isError: false)
     }
 
     private func secondsUntil(_ endDate: Date) -> Int {
         max(Int(ceil(endDate.timeIntervalSinceNow)), 0)
     }
+}
 
-    private func present(error: Error, availability: String) {
-        errorMessage = error.localizedDescription
-        shouldOfferPrivacyAndSecurityHelp = recommendsPrivacyAndSecurityHelp(for: error)
-        statusMessage = availability
-    }
+// MARK: - Input Monitoring Test Callback
 
-    private func recommendsPrivacyAndSecurityHelp(for error: Error) -> Bool {
-        guard let keepCleanError = error as? KeepCleanError else {
-            return false
-        }
-
-        switch keepCleanError {
-        case .permissionDenied, .devicesUnavailable, .keyboardUnavailable, .trackpadUnavailable, .seizeFailed:
-            return true
-        case .helperMissing, .invalidHelperArguments:
-            return false
-        }
-    }
+/// Free function usable as a C function pointer for test event tap creation.
+/// Simply passes events through — we only need the tap creation to succeed
+/// to prove Input Monitoring is granted.
+private func inputMonitoringTestCallback(
+    _ proxy: CGEventTapProxy,
+    _ type: CGEventType,
+    _ event: CGEvent,
+    _ userInfo: UnsafeMutableRawPointer?
+) -> Unmanaged<CGEvent>? {
+    Unmanaged.passUnretained(event)
 }
