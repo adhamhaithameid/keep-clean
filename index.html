@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KeepClean — Clean Your MacBook Without the Chaos</title>
+  <meta name="description" content="KeepClean temporarily disables your MacBook's built-in keyboard and trackpad so you can clean it without accidental typing or clicking. Free, offline, open source.">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta property="og:title" content="KeepClean — Clean Your MacBook Without the Chaos">
+  <meta property="og:description" content="Temporarily disable your MacBook's keyboard and trackpad for a clean wipe. No accounts, no analytics, no internet required.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="icon.png">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a0f;
+      --bg-card: #13131a;
+      --bg-card-hover: #1a1a24;
+      --border: #1e1e2a;
+      --text: #e4e4ed;
+      --text-muted: #8888a0;
+      --accent: #6c63ff;
+      --accent-glow: rgba(108, 99, 255, 0.15);
+      --accent-soft: #8b83ff;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ——— Ambient glow background ——— */
+    .glow-bg {
+      position: fixed;
+      top: -40%;
+      left: 50%;
+      translate: -50% 0;
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ——— Layout ——— */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ——— Nav ——— */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 16px 0;
+      background: rgba(10, 10, 15, 0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    nav .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+    .nav-brand img {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ——— Hero ——— */
+    .hero {
+      text-align: center;
+      padding: 160px 0 100px;
+    }
+    .hero-icon {
+      width: 120px;
+      height: 120px;
+      border-radius: 28px;
+      margin-bottom: 32px;
+      box-shadow: 0 0 80px var(--accent-glow), 0 20px 60px rgba(0,0,0,0.4);
+      animation: float 4s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 3.8rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, var(--accent-soft), var(--green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      max-width: 560px;
+      margin: 0 auto 40px;
+    }
+    .hero-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.25s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 4px 24px var(--accent-glow);
+    }
+    .btn-primary:hover {
+      background: var(--accent-soft);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px var(--accent-glow);
+    }
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .btn svg { width: 18px; height: 18px; }
+
+    /* ——— Badges ——— */
+    .badges {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-top: 48px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .badge-dot.amber { background: var(--amber); }
+
+    /* ——— Sections ——— */
+    section { padding: 80px 0; }
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent-soft);
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(1.8rem, 4vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .section-desc {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin-bottom: 48px;
+    }
+
+    /* ——— Feature cards ——— */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: all 0.3s;
+    }
+    .feature-card:hover {
+      border-color: var(--accent);
+      background: var(--bg-card-hover);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 16px;
+    }
+    .feature-card h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    /* ——— How it works ——— */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 32px;
+      counter-reset: step;
+    }
+    .step {
+      text-align: center;
+      counter-increment: step;
+    }
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--accent-glow);
+      border: 1px solid var(--accent);
+      color: var(--accent-soft);
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+    }
+    .step h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .step p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    /* ——— Safety ——— */
+    .safety-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .safety-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .safety-check {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(52, 211, 153, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+      font-size: 0.85rem;
+      margin-top: 2px;
+    }
+    .safety-item p {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+    .safety-item strong { color: var(--text); }
+
+    /* ——— Permissions ——— */
+    .perm-table {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .perm-row {
+      display: grid;
+      grid-template-columns: 180px 1fr 1fr;
+      gap: 16px;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.92rem;
+    }
+    .perm-row:last-child { border-bottom: none; }
+    .perm-row.header {
+      background: rgba(108, 99, 255, 0.06);
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .perm-row span { color: var(--text-muted); }
+    .perm-row strong { color: var(--text); font-weight: 600; }
+    .perm-note {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      padding: 16px 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    /* ——— CTA ——— */
+    .cta {
+      text-align: center;
+      padding: 80px 0 100px;
+    }
+    .cta-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 60px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: 50%;
+      translate: -50% 0;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-box h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .cta-box p {
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      position: relative;
+    }
+    .cta-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      position: relative;
+    }
+
+    /* ——— Footer ——— */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+      text-align: center;
+    }
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.88rem;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--text); }
+    .footer-copy {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    /* ——— Responsive ——— */
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      .hero { padding: 130px 0 60px; }
+      .hero-icon { width: 88px; height: 88px; border-radius: 22px; }
+      .perm-row { grid-template-columns: 1fr; gap: 6px; }
+      .perm-row.header { display: none; }
+      .perm-row span::before {
+        font-weight: 600;
+        color: var(--text);
+        display: block;
+        margin-bottom: 2px;
+      }
+      section { padding: 56px 0; }
+    }
+
+    /* ——— Fade-in animation ——— */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+<div class="glow-bg"></div>
+
+<!-- Nav -->
+<nav>
+  <div class="container">
+    <a href="#" class="nav-brand">
+      <img src="icon.png" alt="KeepClean" />
+      KeepClean
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#safety">Safety</a></li>
+      <li><a href="#permissions">Permissions</a></li>
+      <li><a href="https://github.com/adhamhaithameid/keep-clean" target="_blank">GitHub</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <img src="icon.png" alt="KeepClean icon" class="hero-icon" />
+    <h1>Clean your MacBook<br><span class="gradient">without the chaos</span></h1>
+    <p>Temporarily disable the built-in keyboard and trackpad so you can wipe down your Mac without accidental typing, window shuffling, or surprise clicks.</p>
+    <div class="hero-buttons">
+      <a href="https://github.com/adhamhaithameid/keep-clean/releases/latest" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Download for macOS
+      </a>
+      <a href="https://github.com/adhamhaithameid/keep-clean" class="btn btn-secondary" target="_blank">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        View Source
+      </a>
+    </div>
+    <div class="badges">
+      <div class="badge"><div class="badge-dot"></div> Free &amp; open source</div>
+      <div class="badge"><div class="badge-dot"></div> No analytics</div>
+      <div class="badge"><div class="badge-dot"></div> Runs offline</div>
+      <div class="badge"><div class="badge-dot amber"></div> macOS 13+</div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+  <div class="container">
+    <div class="fade-in">
+      <div class="section-label">Features</div>
+      <h2 class="section-title">Two modes. Zero complexity.</h2>
+      <p class="section-desc">Pick the mode that matches your cleaning task. One click to start, one click (or a countdown) to finish.</p>
+    </div>
+    <div class="features-grid fade-in">
+      <div class="feature-card">
+        <div class="feature-icon">🧹</div>
+        <h3>Disable Keyboard</h3>
+        <p>Turns off only the built-in keyboard. The trackpad stays active so you can click "Re-enable" at any time. Safest mode for quick wipes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧼</div>
+        <h3>Disable Keyboard + Trackpad</h3>
+        <p>Turns off both for a configurable timer (15–180 seconds). Everything is restored automatically when the countdown finishes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Auto-Start</h3>
+        <p>Optionally begin keyboard cleaning the moment you open the app. A 3-second countdown lets you cancel if you opened it by mistake.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Guided Setup</h3>
+        <p>First-launch setup screen walks you through granting the two required macOS permissions. Takes about 30 seconds.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🚫</div>
+        <h3>No Internet Required</h3>
+        <p>No accounts, no analytics, no telemetry, no cloud sync. KeepClean runs entirely on your Mac and never phones home.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🪶</div>
+        <h3>Tiny Footprint</h3>
+        <p>8 MB app bundle. ~70 MB RAM. Sub-300ms launch. Zero network sockets while idle. Built with native Swift and SwiftUI.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section id="how-it-works" style="border-top: 1px solid var(--border);">
+  <div class="container">
+    <div class="fade-in">
+      <div class="section-label">How It Works</div>
+      <h2 class="section-title">Up and running in under a minute</h2>
+      <p class="section-desc">Download, grant two permissions, and clean your Mac.</p>
+    </div>
+    <div class="steps fade-in">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Download</h3>
+        <p>Grab the .dmg or .zip from the GitHub Releases page and drop it into Applications.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>Grant Permissions</h3>
+        <p>The one-time setup screen guides you through enabling Accessibility and Input Monitoring.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Disable &amp; Clean</h3>
+        <p>Click "Disable Keyboard" and start wiping. The trackpad stays active so you're always in control.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <h3>Re-enable</h3>
+        <p>Click the button again — or let the timer handle it. Your keyboard and trackpad are instantly restored.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Safety -->
+<section id="safety" style="border-top: 1px solid var(--border);">
+  <div class="container">
+    <div class="fade-in">
+      <div class="section-label">Safety</div>
+      <h2 class="section-title">Designed so you can't lock yourself out</h2>
+      <p class="section-desc">KeepClean is deliberately conservative. Here's how it keeps you safe:</p>
+    </div>
+    <div class="safety-grid fade-in">
+      <div class="safety-item">
+        <div class="safety-check">✓</div>
+        <p><strong>Trackpad stays active</strong> in keyboard-only mode — you always have a way to interact.</p>
+      </div>
+      <div class="safety-item">
+        <div class="safety-check">✓</div>
+        <p><strong>Timed mode auto-recovers</strong> — a hard deadline always fires, no matter what.</p>
+      </div>
+      <div class="safety-item">
+        <div class="safety-check">✓</div>
+        <p><strong>Close window = quit app</strong> — all input is immediately restored. No background surprises.</p>
+      </div>
+      <div class="safety-item">
+        <div class="safety-check">✓</div>
+        <p><strong>External devices unaffected</strong> — only the built-in keyboard and trackpad are touched.</p>
+      </div>
+      <div class="safety-item">
+        <div class="safety-check">✓</div>
+        <p><strong>Power button always works</strong> — Touch ID and Force Quit (⌘⌥⎋) are never blocked.</p>
+      </div>
+      <div class="safety-item">
+        <div class="safety-check">✓</div>
+        <p><strong>No background processes</strong> — when the app quits, nothing lingers on your system.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Permissions -->
+<section id="permissions" style="border-top: 1px solid var(--border);">
+  <div class="container">
+    <div class="fade-in">
+      <div class="section-label">Permissions</div>
+      <h2 class="section-title">Why KeepClean needs two permissions</h2>
+      <p class="section-desc">macOS separates "seeing" keyboard events from "blocking" them. KeepClean needs both to actually stop your keystrokes while cleaning.</p>
+    </div>
+    <div class="fade-in">
+      <div class="perm-table">
+        <div class="perm-row header">
+          <span>Permission</span>
+          <span>Why It's Needed</span>
+          <span>What Happens Without It</span>
+        </div>
+        <div class="perm-row">
+          <strong>Accessibility</strong>
+          <span>Creates an event tap to intercept keyboard events</span>
+          <span>The app can't disable the keyboard at all</span>
+        </div>
+        <div class="perm-row">
+          <strong>Input Monitoring</strong>
+          <span>Lets the event tap actually block events from reaching apps</span>
+          <span>Events are intercepted but not blocked — keys still type</span>
+        </div>
+      </div>
+      <div class="perm-note">
+        Both permissions are granted through macOS System Settings, are revocable at any time, and are only used while the app is actively blocking input. KeepClean never reads what you type — it only suppresses events.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="container">
+    <div class="cta-box fade-in">
+      <h2>Ready to clean your Mac?</h2>
+      <p>Download KeepClean for free. No accounts, no setup fees, no strings attached.</p>
+      <div class="cta-buttons">
+        <a href="https://github.com/adhamhaithameid/keep-clean/releases/latest" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Download v1.0.0
+        </a>
+        <a href="https://buymeacoffee.com/adhamhaithameid" class="btn btn-secondary" target="_blank">
+          ☕ Buy Me a Coffee
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="https://github.com/adhamhaithameid/keep-clean">GitHub</a>
+      <a href="https://github.com/adhamhaithameid/keep-clean/releases">Releases</a>
+      <a href="https://github.com/adhamhaithameid/keep-clean/blob/main/docs/faq.md">FAQ</a>
+      <a href="https://github.com/adhamhaithameid/keep-clean/blob/main/docs/troubleshooting.md">Troubleshooting</a>
+      <a href="https://github.com/adhamhaithameid/keep-clean/blob/main/docs/privacy.md">Privacy</a>
+      <a href="https://github.com/adhamhaithameid/keep-clean/blob/main/LICENSE.md">License</a>
+    </div>
+    <p class="footer-copy">
+      Made by <a href="https://github.com/adhamhaithameid" style="color: var(--accent-soft); text-decoration: none;">Adham Haitham Eid</a> · Source-available under <a href="https://github.com/adhamhaithameid/keep-clean/blob/main/LICENSE.md" style="color: var(--text-muted); text-decoration: none;">PolyForm Noncommercial 1.0.0</a>
+    </p>
+  </div>
+</footer>
+
+<script>
+  // Intersection Observer for fade-in animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
