@@ -17,4 +17,15 @@ enum AppTab: String, CaseIterable, Identifiable {
             "About"
         }
     }
+
+    var icon: String {
+        switch self {
+        case .clean:
+            "sparkles"
+        case .settings:
+            "gearshape"
+        case .about:
+            "info.circle"
+        }
+    }
 }
