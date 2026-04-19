@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/adhamhaithameid/keep-clean/releases">Download</a> · <a href="docs/install-from-github.md">Install Guide</a> · <a href="docs/faq.md">FAQ</a>
+  <a href="https://adhamhaithameid.github.io/keep-clean/">Website</a> · <a href="https://github.com/adhamhaithameid/keep-clean/releases">Download</a> · <a href="docs/install-from-github.md">Install Guide</a> · <a href="docs/faq.md">FAQ</a>
 </p>
 
 ---
