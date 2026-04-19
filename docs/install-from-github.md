@@ -1,52 +1,46 @@
-# Install From GitHub
+# Install Guide
 
-This guide is for people downloading KeepClean from the GitHub repository or its Releases page.
+## Download a Ready-Made Build
 
-## Option 1: Download a Ready-Made Build
-
-1. Open the latest [Releases page](https://github.com/adhamhaithameid/keep-clean/releases).
+1. Go to the [Releases page](https://github.com/adhamhaithameid/keep-clean/releases).
 2. Download either:
-   - the `.dmg` if you want the usual drag-to-Applications flow with an installer window
-   - the `.zip` if you prefer a plain archive
-3. If you downloaded the `.dmg`, drag `KeepClean.app` onto the `Applications` shortcut in that window.
-4. If you downloaded the `.zip`, move `KeepClean.app` into `Applications`.
-5. Open it with a right click the first time if macOS warns that it came from the internet.
+   - the **`.dmg`** — drag-to-Applications installer window
+   - the **`.zip`** — plain archive, move `KeepClean.app` to Applications yourself
+3. If macOS warns about an unsigned app, right-click `KeepClean.app` → **Open** → click **Open** in the dialog.
 
-## After You Open It
+## First Launch
 
-1. Go to `Clean`.
-2. Start with `Disable Keyboard`.
-3. If macOS asks for permission, allow it.
-4. If KeepClean says macOS still needs approval, use the `Open Privacy & Security` button in `Settings` or the error panel.
-5. Confirm the trackpad stays active.
-6. Re-enable the keyboard.
+When you open KeepClean for the first time, a one-time setup screen appears:
 
-Then run the rest of the [Post-Install Checklist](/Users/adhamhaithameid/Desktop/code/keep-clean/docs/manual-testing.md).
+1. **Grant Accessibility** — click the button, toggle KeepClean ON in System Settings.
+2. **Grant Input Monitoring** — click the button, add KeepClean and toggle it ON.
+3. Both permissions turn green once detected. Click **Continue to KeepClean**.
 
-## If You Want to Verify the Download
+> **Tip:** If Input Monitoring doesn't turn green even after you granted it, click **"I've Already Granted It"** — this can happen with unsigned builds and is harmless.
 
-- If you built the app locally, compare your files with [SHA256SUMS.txt](/Users/adhamhaithameid/Desktop/code/keep-clean/release/SHA256SUMS.txt).
-- If you downloaded a GitHub release asset, compare it with the checksum published alongside that release when available.
+## Your First Clean
 
-## Optional: Build It Yourself
+1. Go to the **Clean** tab.
+2. Click **Disable Keyboard**.
+3. Clean your keyboard while the trackpad stays active.
+4. Click **Re-enable Keyboard** when you're done.
 
-If you prefer building from source instead of downloading a packaged release:
+That's it. For a more thorough test, run the [Post-Install Checklist](manual-testing.md).
+
+## Build From Source
+
+If you prefer building from source:
 
 ```bash
 git clone https://github.com/adhamhaithameid/keep-clean.git
 cd keep-clean
 xcodegen generate
-./script/run_release_checks.sh
+xcodebuild -project KeepClean.xcodeproj -scheme KeepClean -configuration Release build
 ```
 
-That produces:
-
-- `release/KeepClean.app`
-- `release/KeepClean-<version>-macOS.zip`
-- `release/KeepClean-<version>-macOS.dmg`
-- `release/SHA256SUMS.txt`
+**Requirements:** macOS 13.0+ · Xcode 15+ · [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 
 ## If Something Goes Wrong
 
-- Check [Permissions](/Users/adhamhaithameid/Desktop/code/keep-clean/docs/permissions.md) if macOS blocks the cleaning actions.
-- Check [Troubleshooting](/Users/adhamhaithameid/Desktop/code/keep-clean/docs/troubleshooting.md) if the app opens but does not behave the way you expect.
+- [Permissions](permissions.md) — if macOS blocks the cleaning actions.
+- [Troubleshooting](troubleshooting.md) — if the app opens but doesn't behave as expected.

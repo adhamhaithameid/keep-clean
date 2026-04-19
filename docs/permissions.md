@@ -1,31 +1,36 @@
 # Permissions
 
-KeepClean talks to the built-in keyboard and trackpad through Apple HID APIs. macOS may ask for permission the first time you run a real cleaning action.
+KeepClean needs two macOS permissions to disable your keyboard and trackpad. Both are requested through a guided setup screen the first time you open the app.
 
-## What to Expect
+## What You'll Be Asked For
 
-- The app can open and display its interface without special permission.
-- A permission prompt may appear only when you trigger a real clean.
-- If access is denied, KeepClean shows an error and leaves your Mac usable.
+### Accessibility
 
-## Best First Test
+- **What it does:** lets KeepClean create an event tap to intercept keyboard events.
+- **Without it:** the app cannot disable the keyboard at all.
+- **How to grant:** the setup screen opens System Settings for you — toggle KeepClean ON.
 
-Use `Disable Keyboard` first.
+### Input Monitoring
 
-That mode keeps the trackpad active, which makes it the safest way to confirm the permission flow on your Mac.
+- **What it does:** lets the event tap actually block events from reaching other apps.
+- **Without it:** KeepClean can intercept events but cannot suppress them — keys still type.
+- **How to grant:** the setup screen opens System Settings for you — add KeepClean and toggle it ON.
 
-## If You Do Not See a Prompt
+> **Why both?** macOS treats "seeing" keyboard events and "blocking" them as two separate permissions. KeepClean needs both to actually stop your keystrokes during cleaning.
 
-1. Quit KeepClean.
-2. Open it again.
-3. Try `Disable Keyboard`.
-4. Watch for a system prompt or a message in the app.
+## If the Setup Screen Doesn't Detect Your Permission
+
+This can happen with unsigned or ad-hoc signed builds. After 10 seconds, an **"I've Already Granted It"** button appears — click it to continue. The actual blocking will work correctly as long as the permissions are toggled on in System Settings.
 
 ## If You Previously Denied Access
 
-1. Open KeepClean.
-2. Use the `Open Privacy & Security` button in `Settings`, or use the same button shown in the error panel after a failed clean.
-3. Review the relevant privacy or security prompt area macOS shows for HID access on your system version.
-4. Re-open KeepClean and try again.
+1. Open **System Settings → Privacy & Security**.
+2. Check both **Accessibility** and **Input Monitoring**.
+3. Find KeepClean in each list and toggle it ON.
+4. Reopen KeepClean — it automatically returns to the setup screen if a permission is missing.
 
-If the app still says access was denied, check [Troubleshooting](/Users/adhamhaithameid/Desktop/code/keep-clean/docs/troubleshooting.md).
+## If You Revoke Permissions Later
+
+KeepClean checks permissions on every launch. If either is revoked, the app returns to the setup screen to guide you through re-granting them. You'll also see a banner in the main interface if a permission is missing.
+
+If the app still doesn't work after granting permissions, see [Troubleshooting](troubleshooting.md).
