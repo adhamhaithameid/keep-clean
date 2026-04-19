@@ -1,52 +1,52 @@
 # Post-Install Checklist
 
-Spend five minutes with this checklist before you rely on KeepClean.
+Run through this in about 5 minutes to confirm everything works on your Mac.
 
-## 1. Confirm the App Opens Normally
+## 1. Open the App
 
 - Open `KeepClean.app`.
-- Make sure you can switch between `Clean`, `Settings`, and `About`.
-- Close the window once and confirm the app fully quits.
+- The one-time setup screen should appear.
+- Grant both **Accessibility** and **Input Monitoring** when prompted.
+- Click **Continue to KeepClean**.
 
-## 2. Test the Safer Mode First
+## 2. Test Keyboard-Only Mode
 
-- Open `Clean`.
-- Press `Disable Keyboard`.
-- Confirm the button changes to `Re-enable Keyboard`.
-- Confirm the built-in trackpad still works.
-- Press `Re-enable Keyboard`.
+- Go to the **Clean** tab.
+- Click **Disable Keyboard**.
+- Try typing — nothing should happen.
+- Confirm the trackpad still works normally.
+- Click **Re-enable Keyboard**.
+- Confirm typing works again.
 
-## 3. Confirm the Timer Setting Works
+## 3. Set a Short Timer
 
-- Open `Settings`.
-- Change the keyboard + trackpad duration to `15 seconds`.
-- Return to `Clean`.
-- Confirm the timed button title updates to match the new duration.
+- Go to **Settings**.
+- Change the timer to **15 seconds**.
+- Go back to **Clean**.
 
-## 4. Confirm Timed Recovery
+## 4. Test Timed Mode
 
-- Press `Disable Keyboard + Trackpad`.
-- Wait for the countdown to finish.
-- Confirm the built-in keyboard and trackpad both return automatically.
+- Click **Disable Keyboard + Trackpad**.
+- A countdown appears.
+- Wait for it to finish.
+- Confirm both the keyboard and trackpad are restored automatically.
 
-## 5. Confirm Auto-Start Is Understandable
+## 5. Test Auto-Start (Optional)
 
-- Turn on `Start keyboard disable after opening the app`.
+- In **Settings**, turn on **"Auto-start keyboard disable on launch"**.
 - Quit KeepClean.
-- Re-open it.
-- Confirm the visible countdown appears.
-- Press `Cancel Auto-Start`.
+- Reopen it.
+- A 3-second countdown appears — click **Cancel** to stop it.
 - Confirm the keyboard stays enabled.
 
-## 6. Confirm the About Links
+## 6. Confirm the About Tab
 
-- Open `About`.
-- Click the GitHub profile photo.
-- Click the GitHub button.
-- Click the Buy Me a Coffee button.
+- Open **About**.
+- Verify the GitHub and support links work.
 
-## 7. If macOS Blocks HID Access
+## 7. Confirm Close = Quit
 
-- Try `Disable Keyboard` again.
-- If macOS prompts for access, allow it.
-- If you denied it earlier, follow [Permissions](/Users/adhamhaithameid/Desktop/code/keep-clean/docs/permissions.md).
+- Close the KeepClean window.
+- Confirm the app fully quits (no icon in the Dock or menu bar).
+
+If anything doesn't work as expected, see [Troubleshooting](troubleshooting.md).

@@ -1,26 +1,41 @@
 # Uninstall KeepClean
 
-If you decide not to keep the app, removal is simple.
+If you decide to remove KeepClean, it takes about 30 seconds.
 
-## Remove the App
+## 1. Quit the App
 
-1. Quit KeepClean if it is open.
-2. Drag `KeepClean.app` to the Trash from `Applications`.
+If KeepClean is open, close the window. It fully quits automatically.
 
-## Remove Downloaded Installer Files
+## 2. Delete the App
 
-If you downloaded the `.zip` or `.dmg`, you can also delete those files after installation.
+Drag `KeepClean.app` from your **Applications** folder to the Trash.
 
-## Remove Local Build Artifacts
+## 3. Remove Permissions (Optional)
 
-If you built the app yourself from the repository, you can delete these folders too:
+If you want to clean up the permission entries:
 
-- `release`
-- `.release-checks`
-- `.derived-data`
-- `.derived-data-release`
-- `dist`
+1. Open **System Settings → Privacy & Security → Accessibility**.
+2. Select KeepClean and click the **−** button.
+3. Repeat in **Input Monitoring**.
 
-## Settings
+## 4. Remove Preferences (Optional)
 
-If you used the installed app normally, its saved preferences are small and local. If you want a fully clean removal, you can also remove the KeepClean preferences from your user Library settings area for your macOS account.
+KeepClean stores a small preferences file with your timer duration and auto-start setting. To remove it:
+
+```bash
+defaults delete com.adhamhaithameid.keepclean
+```
+
+## 5. Remove Build Artifacts (If You Built From Source)
+
+If you cloned the repository and built locally, you can delete these generated folders:
+
+```
+release/
+.release-checks/
+.derived-data/
+.derived-data-release/
+dist/
+```
+
+That's it — KeepClean leaves nothing else behind.
