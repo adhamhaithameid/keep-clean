@@ -1,0 +1,18 @@
+# <type>(<scope>): <imperative summary>
+#
+# Examples:
+# feat(clean-tab): add lock-state elapsed timer
+# fix(input-monitoring): avoid false negative on launch
+# test(app-view-model): cover timer auto-recovery edge case
+# docs(permissions): clarify full disk access note
+#
+# Rules:
+# - Keep subject <= 72 chars
+# - One coherent behavior change per commit
+# - Use body only when extra context is needed
+#
+# Why:
+# <optional intent>
+#
+# How:
+# <optional implementation notes>

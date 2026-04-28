@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Soft limits to keep commits small and reviewable.
+MAX_FILES="${KEEP_CLEAN_MAX_FILES:-8}"
+MAX_LINES="${KEEP_CLEAN_MAX_LINES:-220}"
+ALLOW_LARGE="${KEEP_CLEAN_ALLOW_LARGE_COMMIT:-0}"
+
+if [[ "$ALLOW_LARGE" == "1" ]]; then
+  exit 0
+fi
+
+STAGED_FILES=()
+while IFS= read -r FILE_PATH; do
+  if [[ -n "$FILE_PATH" ]]; then
+    STAGED_FILES+=("$FILE_PATH")
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMRTUXB)
+
+if (( ${#STAGED_FILES[@]} == 0 )); then
+  exit 0
+fi
+
+if (( ${#STAGED_FILES[@]} > MAX_FILES )); then
+  echo "Commit blocked: ${#STAGED_FILES[@]} staged files (limit: ${MAX_FILES})."
+  echo "Split this into smaller commits, or bypass once with:"
+  echo "  KEEP_CLEAN_ALLOW_LARGE_COMMIT=1 git commit ..."
+  exit 1
+fi
+
+TOTAL_LINES=0
+
+while IFS=$'\t' read -r ADDED REMOVED _PATH; do
+  # Binary file entries are reported as '-'.
+  if [[ "$ADDED" == "-" || "$REMOVED" == "-" ]]; then
+    continue
+  fi
+
+  if [[ -n "$ADDED" ]]; then
+    TOTAL_LINES=$((TOTAL_LINES + ADDED))
+  fi
+
+  if [[ -n "$REMOVED" ]]; then
+    TOTAL_LINES=$((TOTAL_LINES + REMOVED))
+  fi
+done < <(git diff --cached --numstat --diff-filter=ACMRTUXB)
+
+if (( TOTAL_LINES > MAX_LINES )); then
+  echo "Commit blocked: ${TOTAL_LINES} changed lines (limit: ${MAX_LINES})."
+  echo "Split with 'git add -p' and make smaller atomic commits."
+  echo "Override once with:"
+  echo "  KEEP_CLEAN_ALLOW_LARGE_COMMIT=1 git commit ..."
+  exit 1
+fi

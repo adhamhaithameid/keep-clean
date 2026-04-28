@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MSG_FILE="${1:?missing commit message file}"
+FIRST_LINE="$(sed -n '1p' "$MSG_FILE" | tr -d '\r')"
+LEN=${#FIRST_LINE}
+
+if [[ -z "${FIRST_LINE// }" ]]; then
+  echo "Commit blocked: subject line is empty."
+  exit 1
+fi
+
+if (( LEN < 10 )); then
+  echo "Commit blocked: subject is too short (${LEN} chars)."
+  echo "Use a specific summary, e.g. 'Add menu bar lock-state badge'."
+  exit 1
+fi
+
+if (( LEN > 72 )); then
+  echo "Commit blocked: subject is too long (${LEN} chars, max 72)."
+  exit 1
+fi
+
+if [[ "$FIRST_LINE" =~ [[:space:]]$ ]]; then
+  echo "Commit blocked: remove trailing whitespace in subject."
+  exit 1
+fi
+
+if [[ "$FIRST_LINE" == *"." ]]; then
+  echo "Commit blocked: remove trailing period from subject."
+  exit 1
+fi
+
+LOWER_SUBJECT="$(printf '%s' "$FIRST_LINE" | tr '[:upper:]' '[:lower:]')"
+case "$LOWER_SUBJECT" in
+  "wip"|"tmp"|"update"|"changes"|"fix"|"stuff")
+    echo "Commit blocked: '${FIRST_LINE}' is too vague for a durable history."
+    exit 1
+    ;;
+esac
