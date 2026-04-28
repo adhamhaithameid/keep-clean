@@ -1,0 +1,108 @@
+name: KeepClean CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate --spec project.yml
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project KeepClean.xcodeproj \
+            -scheme KeepClean \
+            -destination 'platform=macOS' \
+            -configuration Release \
+            build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty
+
+      - name: Test
+        run: |
+          xcodebuild \
+            -project KeepClean.xcodeproj \
+            -scheme KeepClean \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            test \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty
+
+  release-dmg:
+    name: Build Release DMG
+    runs-on: macos-15
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build-and-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Install tools
+        run: brew install xcodegen create-dmg
+
+      - name: Generate project
+        run: xcodegen generate --spec project.yml
+
+      - name: Archive
+        run: |
+          xcodebuild \
+            -project KeepClean.xcodeproj \
+            -scheme KeepClean \
+            -configuration Release \
+            -archivePath build/KeepClean.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Export app
+        run: |
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/KeepClean.xcarchive \
+            -exportPath build/Export \
+            -exportOptionsPlist ExportOptions.plist \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Create DMG
+        run: |
+          create-dmg \
+            --volname "KeepClean" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "KeepClean.app" 175 190 \
+            --hide-extension "KeepClean.app" \
+            --app-drop-link 425 190 \
+            "build/KeepClean.dmg" \
+            "build/Export/"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KeepClean-dmg
+          path: build/KeepClean.dmg
+          retention-days: 14
