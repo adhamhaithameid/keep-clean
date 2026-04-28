@@ -11,7 +11,7 @@ struct LogicChecks {
         precondition(settings.autoStartKeyboardDisableOnLaunch == false)
 
         settings.fullCleanDurationSeconds = 999
-        precondition(settings.fullCleanDurationSeconds == 180)
+        precondition(settings.fullCleanDurationSeconds == 300)
 
         settings.autoStartKeyboardDisableOnLaunch = true
         precondition(AppSettings(userDefaults: defaults).autoStartKeyboardDisableOnLaunch == true)
