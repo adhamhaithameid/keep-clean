@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+
 @testable import KeepClean
 
 @MainActor
@@ -193,6 +194,50 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertNil(model.remainingTimedLockSeconds)
     }
 
+    // MARK: - Emergency Stop Tests
+
+    func testHandleEmergencyStop_duringTimedClean_cancelsSession() async {
+        let controller = TestBuiltInInputController(availability: "Built-in input ready.")
+        let model = makeModel(inputController: controller)
+
+        await model.startTimedFullClean()
+        XCTAssertTrue(model.isTimedSessionActive)
+        XCTAssertNotNil(model.activeSession)
+
+        await model.handleEmergencyStop()
+
+        XCTAssertFalse(model.isTimedSessionActive)
+        XCTAssertNil(model.activeSession)
+        XCTAssertNil(model.remainingTimedLockSeconds)
+    }
+
+    func testHandleEmergencyStop_duringKeyboardLock_cancelsLock() async {
+        let controller = TestBuiltInInputController(availability: "Built-in input ready.")
+        let model = makeModel(inputController: controller)
+
+        await model.toggleKeyboardLock()
+        XCTAssertTrue(model.isKeyboardLocked)
+
+        await model.handleEmergencyStop()
+
+        XCTAssertFalse(model.isKeyboardLocked)
+        XCTAssertNil(model.activeSession)
+    }
+
+    func testHandleEmergencyStop_withNoActiveSession_isIdempotent() async {
+        let controller = TestBuiltInInputController(availability: "Built-in input ready.")
+        let model = makeModel(inputController: controller)
+
+        XCTAssertNil(model.activeSession)
+
+        // Should not crash and must leave state clean.
+        await model.handleEmergencyStop()
+
+        XCTAssertNil(model.activeSession)
+        XCTAssertFalse(model.isKeyboardLocked)
+        XCTAssertFalse(model.isTimedSessionActive)
+    }
+
     func testToastDismissal() {
         let model = makeModel()
 
@@ -204,12 +249,61 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertNil(model.toastMessage)
     }
 
+    // MARK: - Permission Failure Tests
+
+    func testToggleKeyboardLockFailsWithoutAccessibility() async {
+        let controller = TestBuiltInInputController()
+        let model = makeModel(inputController: controller)
+        model.setPermissionsForTesting(accessibility: false, inputMonitoring: true)
+
+        await model.toggleKeyboardLock()
+
+        XCTAssertNil(model.activeSession)
+        XCTAssertTrue(model.toastIsError)
+        XCTAssertNotNil(model.toastMessage)
+    }
+
+    func testToggleKeyboardLockFailsWithoutInputMonitoring() async {
+        let controller = TestBuiltInInputController()
+        let model = makeModel(inputController: controller)
+        model.setPermissionsForTesting(accessibility: true, inputMonitoring: false)
+
+        await model.toggleKeyboardLock()
+
+        XCTAssertNil(model.activeSession)
+        XCTAssertTrue(model.toastIsError)
+        XCTAssertNotNil(model.toastMessage)
+    }
+
+    func testStartTimedFullCleanFailsWithoutAccessibility() async {
+        let controller = TestBuiltInInputController()
+        let model = makeModel(inputController: controller)
+        model.setPermissionsForTesting(accessibility: false, inputMonitoring: true)
+
+        await model.startTimedFullClean()
+
+        XCTAssertNil(model.activeSession)
+        XCTAssertTrue(model.toastIsError)
+    }
+
+    func testStartTimedFullCleanFailsWithoutInputMonitoring() async {
+        let controller = TestBuiltInInputController()
+        let model = makeModel(inputController: controller)
+        model.setPermissionsForTesting(accessibility: true, inputMonitoring: false)
+
+        await model.startTimedFullClean()
+
+        XCTAssertNil(model.activeSession)
+        XCTAssertTrue(model.toastIsError)
+    }
+
     private func makeModel(
         settings: AppSettings? = nil,
         inputController: TestBuiltInInputController = TestBuiltInInputController(),
         helperLauncher: HelperProcessLauncher = HelperProcessLauncher(helperURLProvider: { nil }),
         linkOpener: TestLinkOpener = TestLinkOpener(),
-        launchOverrides: LaunchOverrides = LaunchOverrides(useMockInputController: false, forceAutoStartOn: false, forceTimedFullCleanOn: false)
+        launchOverrides: LaunchOverrides = LaunchOverrides(
+            useMockInputController: false, forceAutoStartOn: false, forceTimedFullCleanOn: false)
     ) -> AppViewModel {
         let model = AppViewModel(
             settings: settings ?? makeSettings(testName: #function),
@@ -219,8 +313,7 @@ final class AppViewModelTests: XCTestCase {
             launchOverrides: launchOverrides
         )
         // In tests, bypass system permission checks so we can test locking logic.
-        model.hasAccessibility = true
-        model.hasInputMonitoring = true
+        model.setPermissionsForTesting(accessibility: true, inputMonitoring: true)
         return model
     }
 
@@ -236,7 +329,8 @@ final class AppViewModelTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let scriptURL = directory.appendingPathComponent("helper.sh")
         try contents.write(to: scriptURL, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
         return scriptURL
     }
 

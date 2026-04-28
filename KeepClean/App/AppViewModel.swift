@@ -1,9 +1,15 @@
+import AppKit
 @preconcurrency import ApplicationServices
-import Foundation
 import Combine
+import Foundation
+import UserNotifications
 import os.log
+import os.signpost
 
+// MARK: - Structured Loggers (#28)
 private let logger = Logger(subsystem: "com.adhamhaithameid.keepclean", category: "AppViewModel")
+private let sessionLog = Logger(subsystem: "com.adhamhaithameid.keepclean", category: "sessions")
+private let perfLog = OSLog(subsystem: "com.adhamhaithameid.keepclean", category: .pointsOfInterest)
 
 @MainActor
 final class AppViewModel: ObservableObject {
@@ -16,14 +22,22 @@ final class AppViewModel: ObservableObject {
     @Published var autoStartCountdownSecondsRemaining: Int?
 
     // Permission tracking
-    @Published var hasAccessibility = false
-    @Published var hasInputMonitoring = false
+    @Published private(set) var hasAccessibility = false
+    @Published private(set) var hasInputMonitoring = false
 
     // Toast notification system
     @Published var toastMessage: String?
     @Published var toastIsError: Bool = false
+
+    // #13 undo window
+    @Published var undoPendingMode: AppSettings.CleanMode?
+
+    // #7 confetti trigger
+    @Published var showConfetti: Bool = false
+
     private var toastDismissTask: Task<Void, Never>?
     private var permissionPollTask: Task<Void, Never>?
+    private var undoTask: Task<Void, Never>?
 
     private let inputController: any BuiltInInputControlling
     private let helperLauncher: HelperProcessLauncher
@@ -63,39 +77,29 @@ final class AppViewModel: ObservableObject {
     }
 
     /// Refresh permission state (called by polling and manually).
+    /// In mock/UI test mode this is a no-op — permissions are set once by AppEnvironment
+    /// via setPermissionsForTesting() and must not be overwritten by live TCC checks.
     func refreshPermissions() {
+        guard !launchOverrides.useMockInputController else { return }
         hasAccessibility = AXIsProcessTrusted()
-        // Input Monitoring: try multiple detection methods.
-        // 1. Test event tap creation (most reliable runtime check)
-        // 2. CGPreflightListenEventAccess() as fallback
-        hasInputMonitoring = checkInputMonitoringAvailable()
-        logger.debug("Permissions refreshed: accessibility=\(self.hasAccessibility), inputMonitoring=\(self.hasInputMonitoring)")
+        // Delegate to the shared 4-method detector — single source of truth.
+        hasInputMonitoring = InputMonitoringDetector.isGranted()
+        logger.debug(
+            "Permissions refreshed: accessibility=\(self.hasAccessibility), inputMonitoring=\(self.hasInputMonitoring)"
+        )
     }
 
-    /// Check if Input Monitoring is available using multiple methods.
-    private func checkInputMonitoringAvailable() -> Bool {
-        // Method 1: Try creating a test listenOnly event tap.
-        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
-        let callback = inputMonitoringTestCallback as CGEventTapCallBack
-        if let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .listenOnly,
-            eventsOfInterest: mask,
-            callback: callback,
-            userInfo: nil
-        ) {
-            CFMachPortInvalidate(tap)
-            return true
-        }
-
-        // Method 2: Official API (may not update in real-time).
-        return CGPreflightListenEventAccess()
+    /// Internal helper for tests — bypasses system TCC checks so permission
+    /// logic can be exercised without needing a real macOS permission grant.
+    func setPermissionsForTesting(accessibility: Bool, inputMonitoring: Bool) {
+        hasAccessibility = accessibility
+        hasInputMonitoring = inputMonitoring
     }
 
     /// Prompt for Accessibility and open the settings pane.
     func promptAccessibility() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        let options =
+            [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         SystemSettingsLink.accessibility.open()
         startPermissionPolling()
@@ -175,15 +179,26 @@ final class AppViewModel: ObservableObject {
         autoStartTask?.cancel()
         permissionPollTask?.cancel()
 
-        Task {
-            await manualKeyboardLease?.release()
-            await timedLease?.release()
+        // Release device locks synchronously so the hardware is never left blocked
+        // if the process exits before an async Task gets scheduled.
+        let keyboard = manualKeyboardLease
+        let timed = timedLease
+        manualKeyboardLease = nil
+        timedLease = nil
+
+        if keyboard != nil || timed != nil {
+            let sem = DispatchSemaphore(value: 0)
+            Task.detached {
+                await keyboard?.release()
+                await timed?.release()
+                sem.signal()
+            }
+            // Wait up to 2 s — plenty for a HID/tap teardown.
+            _ = sem.wait(timeout: .now() + 2)
         }
 
         lockCoordinator.clear()
         helperProcess = nil
-        manualKeyboardLease = nil
-        timedLease = nil
         activeSession = nil
         remainingTimedLockSeconds = nil
         autoStartCountdownSecondsRemaining = nil
@@ -192,6 +207,31 @@ final class AppViewModel: ObservableObject {
     }
 
     // MARK: - Keyboard Toggle
+
+    // MARK: - Emergency Stop
+
+    /// Called when the user presses Left ⌘ + Right ⌘ + 1 + 0 while a session is active.
+    /// Cancels whichever session is currently running and re-enables input.
+    func handleEmergencyStop() async {
+        logger.info("Emergency stop shortcut triggered.")
+        if isTimedSessionActive {
+            await cancelTimedSession()
+        } else if isKeyboardLocked {
+            await toggleKeyboardLock()
+        }
+    }
+
+    /// Returns a `@Sendable` emergency-stop closure if the feature is enabled,
+    /// or a no-op closure when it's disabled. Using a function avoids Swift's
+    /// type-inference limitation with `@Sendable` in ternary expressions.
+    private func makeEmergencyStopHandler() -> @Sendable () -> Void {
+        guard settings.emergencyStopEnabled else { return {} }
+        return { [weak self] in
+            Task { @MainActor [weak self] in
+                await self?.handleEmergencyStop()
+            }
+        }
+    }
 
     func toggleKeyboardLock() async {
         toastMessage = nil
@@ -219,7 +259,10 @@ final class AppViewModel: ObservableObject {
         }
 
         do {
-            let lease = try await inputController.lock(target: .keyboard)
+            let lease = try await inputController.lock(
+                target: .keyboard,
+                onEmergencyStop: makeEmergencyStopHandler()
+            )
             manualKeyboardLease = lease
             activeSession = lockCoordinator.beginManual(target: .keyboard, owner: .app)
             statusMessage = "Keyboard disabled."
@@ -250,7 +293,10 @@ final class AppViewModel: ObservableObject {
         }
 
         do {
-            let lease = try await inputController.lock(target: .keyboardAndTrackpad)
+            let lease = try await inputController.lock(
+                target: .keyboardAndTrackpad,
+                onEmergencyStop: makeEmergencyStopHandler()
+            )
             timedLease = lease
             let session = lockCoordinator.beginTimed(
                 target: .keyboardAndTrackpad,
@@ -402,12 +448,109 @@ final class AppViewModel: ObservableObject {
 
     private func finishTimedSession() {
         timedCountdownTask?.cancel()
+        let duration = settings.fullCleanDurationSeconds
         remainingTimedLockSeconds = nil
         helperProcess = nil
         lockCoordinator.clear()
         activeSession = nil
         statusMessage = "Done! Input re-enabled."
         showToast("Cleaning session completed.", isError: false)
+
+        // #10 record history
+        settings.recordCompletedSession(mode: .timed, durationSeconds: duration)
+        // #7 confetti — ConfettiBurst observes this via onChange and animates itself
+        showConfetti = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { self.showConfetti = false }
+        // #8 clear dock badge
+        updateDockBadge(active: false)
+        // #12 post notification
+        postCompletionNotification()
+        // #24 sound
+        playSound("Glass")
+
+        sessionLog.info("Timed session finished, duration=\(duration)s")
+    }
+
+    // MARK: - #8 Dock Badge
+
+    func updateDockBadge(active: Bool) {
+        NSApp.dockTile.badgeLabel = active ? "●" : nil
+    }
+
+    // MARK: - #11 Sleep Auto-End
+
+    func handleMacSleep() {
+        guard activeSession != nil || isKeyboardLocked else { return }
+        Task {
+            if isKeyboardLocked { await toggleKeyboardLock() } else { await cancelTimedSession() }
+        }
+        logger.info("Session auto-ended due to Mac sleep")
+    }
+
+    // MARK: - #12 System Notifications
+
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) {
+            granted, _ in
+            DispatchQueue.main.async { self.settings.notificationsEnabled = granted }
+        }
+    }
+
+    private func postCompletionNotification() {
+        guard settings.notificationsEnabled else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "KeepClean ✓"
+        content.body = "Your cleaning session is done. Input has been re-enabled."
+        content.sound = .default
+        let req = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(req)
+    }
+
+    // MARK: - #13 3-Second Undo Window
+
+    private func armUndoWindow(mode: AppSettings.CleanMode) {
+        undoTask?.cancel()
+        undoPendingMode = mode
+        undoTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self.undoPendingMode = nil }
+        }
+    }
+
+    func undoLastAction() {
+        undoTask?.cancel()
+        undoPendingMode = nil
+        Task {
+            if isKeyboardLocked {
+                await toggleKeyboardLock()
+            } else if isTimedSessionActive {
+                await cancelTimedSession()
+            }
+        }
+        showToast("Action undone.", isError: false)
+    }
+
+    // MARK: - #14 Repeat Last Session (⌘R)
+
+    func repeatLastSession() {
+        guard !isKeyboardLocked && !isTimedSessionActive else { return }
+        Task {
+            switch settings.lastUsedCleanMode {
+            case .keyboard: await toggleKeyboardLock()
+            case .timed: await startTimedFullClean()
+            }
+        }
+        sessionLog.info("Repeating last session: \(self.settings.lastUsedCleanMode.rawValue)")
+    }
+
+    // MARK: - #24 Sound Effects
+
+    func playSound(_ name: String) {
+        guard settings.soundsEnabled else { return }
+        NSSound(named: NSSound.Name(name))?.play()
     }
 
     private func secondsUntil(_ endDate: Date) -> Int {
@@ -415,16 +558,20 @@ final class AppViewModel: ObservableObject {
     }
 }
 
-// MARK: - Input Monitoring Test Callback
+// MARK: - Xcode Preview Factory (#30)
 
-/// Free function usable as a C function pointer for test event tap creation.
-/// Simply passes events through — we only need the tap creation to succeed
-/// to prove Input Monitoring is granted.
-private func inputMonitoringTestCallback(
-    _ proxy: CGEventTapProxy,
-    _ type: CGEventType,
-    _ event: CGEvent,
-    _ userInfo: UnsafeMutableRawPointer?
-) -> Unmanaged<CGEvent>? {
-    Unmanaged.passUnretained(event)
+extension AppViewModel {
+    static func preview() -> AppViewModel {
+        let settings = AppSettings(userDefaults: .standard)
+        settings.setupCompleted = true
+        let model = AppViewModel(
+            settings: settings,
+            inputController: MockBuiltInInputController(),
+            helperLauncher: HelperProcessLauncher(),
+            linkOpener: WorkspaceLinkOpener(),
+            launchOverrides: LaunchOverrides(arguments: ["UITEST_MOCK_INPUT"])
+        )
+        model.setPermissionsForTesting(accessibility: true, inputMonitoring: true)
+        return model
+    }
 }
